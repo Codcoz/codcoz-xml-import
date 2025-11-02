@@ -4,7 +4,7 @@ import psycopg2
 from datetime import datetime
 import xml.etree.ElementTree as ET
 from dotenv import load_dotenv
-import flask_cors
+from flask_cors import CORS
 
 load_dotenv()
 
