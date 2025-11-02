@@ -2,3 +2,5 @@ Flask
 psycopg2
 dotenv
 pandas
+gunicorn
+flask-cors
