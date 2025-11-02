@@ -22,7 +22,7 @@ jobs:
             exit 1
           fi
 
-          url="${RENDER_HOOK}?ref=${REF}"
+          url="${RENDER_HOOK}&ref=${REF}"
           echo "Calling: $url"
 
           curl --fail -sS -i -X POST "$url"
