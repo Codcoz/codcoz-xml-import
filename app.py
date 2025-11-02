@@ -4,6 +4,7 @@ import psycopg2
 from datetime import datetime
 import xml.etree.ElementTree as ET
 from dotenv import load_dotenv
+import flask_cors
 
 load_dotenv()
 
@@ -14,6 +15,7 @@ conn = get_conn()
 cursor = conn.cursor()
 
 app = Flask(__name__)
+CORS(app)
 
 def extrair_dados_nfe(xml_content) -> dict:
     root = ET.fromstring(xml_content)
