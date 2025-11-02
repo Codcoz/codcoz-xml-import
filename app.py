@@ -174,5 +174,12 @@ def insert_xml():
     except Exception as e:
         return jsonify({'erro': f'Erro ao processar XML: {str(e)}'}), 500   
 
+@app.route("/health", methods=["GET"])
+def health_check():
+    return jsonify({
+        "status": "ok",
+        "timestamp": datetime.now().isoformat()
+    })
+
 if __name__ == "__main__":
     app.run(debug=True)
