@@ -2,3 +2,4 @@ Flask
 psycopg2
 dotenv
 gunicorn
+flask-cors
