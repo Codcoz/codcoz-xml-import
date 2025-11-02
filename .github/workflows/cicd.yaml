@@ -1,0 +1,28 @@
+name: CI/CD -> Render
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout (not strictly required but handy)
+        uses: actions/checkout@v4
+
+      - name: Trigger Render deploy hook
+        env:
+          RENDER_HOOK: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+          REF: ${{ github.sha }}
+        run: |
+          if [ -z "$RENDER_HOOK" ]; then
+            echo "Secret RENDER_DEPLOY_HOOK_URL is not set"
+            exit 1
+          fi
+
+          url="${RENDER_HOOK}?ref=${REF}"
+          echo "Calling: $url"
+
+          curl --fail -sS -i -X POST "$url"
