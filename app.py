@@ -1,6 +1,7 @@
 from flask import Flask, request, jsonify
 import os
 import psycopg2
+import pandas as pd
 from datetime import datetime
 import xml.etree.ElementTree as ET
 from dotenv import load_dotenv
@@ -122,6 +123,76 @@ def inserir_nota_fiscal(nota_fiscal: dict, empresa_id: int):
 
     conn.commit()
     conn.close()
+
+def select_pedidos(empresa_id: int) -> list:
+    pedido_query = f"""
+        SELECT id
+             , empresa_id
+             , data_compra
+             , data_previsao
+             , data_recebimento
+             , descricao
+             , cod_nota_fiscal
+          FROM pedido
+         WHERE empresa_id = {empresa_id}
+         ORDER BY data_compra DESC;
+    """
+    df = pd.read_sql_query(pedido_query, conn)
+
+    pedidos_list = []
+    for _, row in df.iterrows():
+        pedido = {
+            "id": row.get("id"),
+            "empresa_id": row.get("empresa_id"),
+            "data_compra": str(row.get("data_compra")),
+            "data_previsao": str(row.get("data_previsao")),
+            "data_recebimento": str(row.get("data_recebimento")),
+            "descricao": row.get("descricao"),
+            "cod_nota_fiscal": row.get("cod_nota_fiscal")
+        }
+
+        pedidos_list.append(pedido)
+
+    return pedidos_list
+
+def select_itens_pedido(pedido_id):
+    item_pedido_query = f"""
+        SELECT p.id as produto_id
+             , p.nome as nome_produto
+             , p.marca
+             , ip.quantidade 
+          FROM item_pedido ip 
+          JOIN produto p ON p.id = ip.produto_id 
+         WHERE ip.pedido_id = {pedido_id};
+    """
+    df = pd.read_sql_query(item_pedido_query, conn)
+
+    itens_pedido_list = []
+    for _, row in df.iterrows():
+        item_pedido = {
+            "produto_id": row.get("produto_id"),
+            "nome_produto": row.get("nome_produto"),
+            "marca": row.get("marca"),
+            "quantidade": row.get("quantidade"),
+        }
+
+        itens_pedido_list.append(item_pedido)
+
+    return itens_pedido_list 
+
+
+@app.route("/read_pedidos/<empresa_id>", methods=["GET"])
+def read_pedidos(empresa_id):
+    pedidos_list = select_pedidos(empresa_id)
+
+    return jsonify({"status": "ok", "pedidos": pedidos_list})
+
+@app.route("/read_itens_pedido/<pedido_id>", methods=["GET"])
+def read_itens_pedido(pedido_id):
+
+    itens_pedido_list = select_itens_pedido(pedido_id)
+
+    return jsonify({"status": "ok", "pedidos": itens_pedido_list})
 
 @app.route("/read_xml", methods=["POST"])
 def read_xml():
