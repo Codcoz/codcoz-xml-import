@@ -122,7 +122,6 @@ def inserir_nota_fiscal(nota_fiscal: dict, empresa_id: int):
     inserir_itens_e_produtos(produtos, empresa_id, pedido_id)
 
     conn.commit()
-    conn.close()
 
 def select_pedidos(empresa_id: int) -> list:
     pedido_query = f"""
