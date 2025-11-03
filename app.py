@@ -12,9 +12,6 @@ load_dotenv()
 def get_conn():
     return psycopg2.connect(os.getenv("SQL_URL"))
 
-conn = get_conn()
-cursor = conn.cursor()
-
 app = Flask(__name__)
 CORS(app)
 
@@ -51,7 +48,7 @@ def extrair_dados_nfe(xml_content) -> dict:
         'produtos': produtos
     }
 
-def normalize_unidade_medida(unidade_medida):
+def normalize_unidade_medida(unidade_medida, cursor):
     # Tenta selecionar a unidade de medida baseado em sua sigla
     cursor.execute("SELECT id FROM unidade_medida WHERE sigla = UPPER(%s);", (unidade_medida, ))
     row = cursor.fetchone()
@@ -63,7 +60,7 @@ def normalize_unidade_medida(unidade_medida):
         cursor.execute("INSERT INTO unidade_medida (sigla) VALUES (UPPER(%s)) RETURNING id;", (unidade_medida, ))
         return cursor.fetchone()[0]    
 
-def normalize_produto(nome_produto, quantidade, unidade_medida, codigo_ean, empresa_id, validade):
+def normalize_produto(nome_produto, quantidade, unidade_medida, codigo_ean, empresa_id, validade, cursor):
     # Tenta selecionar o produto baseado em seu nome e empresa
     cursor.execute("SELECT id FROM produto WHERE codigo_ean = %s AND empresa_id = %s;", (codigo_ean, empresa_id))
     row = cursor.fetchone()
@@ -80,7 +77,7 @@ def normalize_produto(nome_produto, quantidade, unidade_medida, codigo_ean, empr
         return row[0]
     else:
         # Mapeia a unidade de medida
-        unidade_medida_id = normalize_unidade_medida(unidade_medida)
+        unidade_medida_id = normalize_unidade_medida(unidade_medida, cursor)
 
         cursor.execute(
             "INSERT INTO produto (nome, quantidade, unidade_medida_id, empresa_id, codigo_ean, validade) VALUES (%s, %s, %s, %s, %s, %s) RETURNING id;",
@@ -88,7 +85,7 @@ def normalize_produto(nome_produto, quantidade, unidade_medida, codigo_ean, empr
         )
         return cursor.fetchone()[0]
 
-def inserir_itens_e_produtos(produtos: list, empresa_id: int, pedido_id: int):
+def inserir_itens_e_produtos(produtos: list, empresa_id: int, pedido_id: int, cursor):
     insert_item_pedido = """
         INSERT INTO item_pedido (produto_id, pedido_id, quantidade, preco_unitario)
              VALUES (%s, %s, %s, %s);    
@@ -102,11 +99,13 @@ def inserir_itens_e_produtos(produtos: list, empresa_id: int, pedido_id: int):
         codigo_ean = prod.get("ean")
         data_validade = datetime.fromisoformat(prod.get("data_validade")).date() if prod.get("data_validade") != None else None
         
-        produto_id = normalize_produto(nome_produto, quantidade, unidade_medida, codigo_ean, empresa_id, data_validade)
+        produto_id = normalize_produto(nome_produto, quantidade, unidade_medida, codigo_ean, empresa_id, data_validade, cursor)
 
         cursor.execute(insert_item_pedido, (produto_id, pedido_id, quantidade, valor_unitario, ))
 
 def inserir_nota_fiscal(nota_fiscal: dict, empresa_id: int):
+    conn = get_conn()
+    cursor = conn.cursor()
     insert_pedido = """
         INSERT INTO pedido (empresa_id, data_compra, cod_nota_fiscal)
              VALUES (%s, %s, %s)
@@ -119,11 +118,12 @@ def inserir_nota_fiscal(nota_fiscal: dict, empresa_id: int):
     pedido_id = cursor.fetchone()[0]
     produtos = nota_fiscal.get("produtos")
 
-    inserir_itens_e_produtos(produtos, empresa_id, pedido_id)
+    inserir_itens_e_produtos(produtos, empresa_id, pedido_id, cursor)
 
     conn.commit()
 
 def select_pedidos(empresa_id: int) -> list:
+    conn = get_conn()
     pedido_query = f"""
         SELECT id
              , empresa_id
@@ -155,6 +155,7 @@ def select_pedidos(empresa_id: int) -> list:
     return pedidos_list
 
 def select_itens_pedido(pedido_id):
+    conn = get_conn()
     item_pedido_query = f"""
         SELECT p.id as produto_id
              , p.nome as nome_produto
@@ -182,12 +183,16 @@ def select_itens_pedido(pedido_id):
 
 @app.route("/read_pedidos/<empresa_id>", methods=["GET"])
 def read_pedidos(empresa_id):
+    conn = get_conn()
+    cursor = conn.cursor()
     pedidos_list = select_pedidos(empresa_id)
 
     return jsonify({"status": "ok", "pedidos": pedidos_list})
 
 @app.route("/read_itens_pedido/<pedido_id>", methods=["GET"])
 def read_itens_pedido(pedido_id):
+    conn = get_conn()
+    cursor = conn.cursor()
 
     itens_pedido_list = select_itens_pedido(pedido_id)
 
